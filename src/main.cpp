@@ -165,8 +165,28 @@ void checkWiFi() {
   }
 }
 
+void publishPatternState();  // defined below; forward-declared for use in mqttCallback
+
 void mqttCallback(char* topic, byte* payload, unsigned int length) {
-  // Pattern-set and OTA command handling added in later tasks.
+  if (strcmp(topic, PATTERN_SET_TOPIC) == 0) {
+    char value[16] = {};
+    unsigned int len = length < sizeof(value) - 1 ? length : sizeof(value) - 1;
+    memcpy(value, payload, len);
+    gButtonClicked = String(value);
+    Serial.print("Pattern set via MQTT: ");
+    Serial.println(gButtonClicked);
+    publishPatternState();
+  } else if (strcmp(topic, CMD_TOPIC) == 0) {
+    if (length == 3 && strncmp((char*)payload, "ota", 3) == 0) {
+      Serial.println("OTA requested via MQTT");
+      s_otaRequested = true;
+      mqtt.publish(CMD_TOPIC, "", true);  // clear the retained command
+    } else if (length == 6 && strncmp((char*)payload, "cancel", 6) == 0) {
+      Serial.println("OTA cancelled via MQTT");
+      s_otaCancelled = true;
+      mqtt.publish(CMD_TOPIC, "", true);  // clear the retained command
+    }
+  }
 }
 
 void publishPatternDiscovery() {
@@ -609,6 +629,7 @@ void loop() {
             }else if (gHeader.indexOf("GET /update?color=nordic") >= 0) {
               gButtonClicked = "nordic";
             }
+            publishPatternState();
             // Display the HTML web page, using the TemplatePrinter to make it a little easier to deal with.
             TemplatePrinter printer(client, RadioProcessor);  
             printer.print (index_html);
