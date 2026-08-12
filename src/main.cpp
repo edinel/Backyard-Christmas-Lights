@@ -1,6 +1,7 @@
 #include <Arduino.h>
 #include <FastLED.h>
 #include <PubSubClient.h>
+#include <ArduinoOTA.h>
 #include <WiFi.h>
 #include <stdio.h>
 #include <time.h>
@@ -24,6 +25,7 @@
 #define device_id "twinkle_back"
 #define MQTT_PORT 1883
 #define MQTT_RETRY_INTERVAL_MS 5000
+#define OTA_IDLE_TIMEOUT_MS 60000
 
 #define ARRAY_SIZE(A) (sizeof(A) / sizeof((A)[0]))
 
@@ -59,6 +61,7 @@ char PATTERN_CONFIG_TOPIC[64];
 
 bool s_otaRequested = false;
 bool s_otaCancelled = false;
+bool s_otaUploadStarted = false;
 
 // Variable to store the HTTP request
 String gHeader;
@@ -230,6 +233,34 @@ void reconnectMQTT() {
     Serial.print("MQTT connect failed, rc=");
     Serial.println(mqtt.state());
   }
+}
+
+void enterOTAMode() {
+  Serial.println("OTA mode — waiting for upload");
+  s_otaUploadStarted = false;
+
+  ArduinoOTA.setHostname(hostname);
+  ArduinoOTA.onStart([]()  { s_otaUploadStarted = true; Serial.println("OTA upload started"); });
+  ArduinoOTA.onEnd([]()    { Serial.println("OTA complete — rebooting"); });
+  ArduinoOTA.onProgress([](unsigned int prog, unsigned int total) {
+    Serial.printf("OTA %u%%\n", prog * 100 / total);
+  });
+  ArduinoOTA.onError([](ota_error_t e) { Serial.printf("OTA error %u\n", e); });
+  ArduinoOTA.begin();
+
+  unsigned long start = millis();
+  while (!s_otaCancelled) {
+    ArduinoOTA.handle();
+    mqtt.loop();
+    if (!s_otaUploadStarted && millis() - start > OTA_IDLE_TIMEOUT_MS) {
+      Serial.println("OTA idle timeout — resuming normal operation");
+      break;
+    }
+  }
+
+  s_otaRequested  = false;
+  s_otaCancelled  = false;
+  Serial.println("Exiting OTA mode");
 }
 
 String isThisOn (String color){
@@ -583,6 +614,11 @@ void loop() {
   checkWiFi();
   reconnectMQTT();
   mqtt.loop();
+
+  if (s_otaRequested) {
+    enterOTAMode();
+    return;
+  }
 
   WiFiClient client = gWiFiServer.available();   // Listen for incoming clients
   if (client) {                             // If a new client connects,
