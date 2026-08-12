@@ -1,0 +1,10 @@
+{
+  "permissions": {
+    "allow": [
+      "Read(//Users/edinel/src/Air Quality/AirSensor/src/**)",
+      "Read(//Users/edinel/Library/CloudStorage/Dropbox/source/Air Quality/AirSensor/src/**)",
+      "Bash(cat \"/Users/edinel/src/Air Quality/AirSensor/platformio.ini\")",
+      "Read(//Users/edinel/Library/CloudStorage/Dropbox/source/Air Quality/AirSensor/**)"
+    ]
+  }
+}
