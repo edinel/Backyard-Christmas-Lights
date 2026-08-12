@@ -55,15 +55,16 @@ A sibling project, `AirSensor` (`/Users/edinel/src/Air Quality/AirSensor/src/mai
 - `setup()` keeps its existing blocking initial connect (`Connect_to_Wifi()`) — there's nothing useful to do before WiFi exists on first boot, so no change needed there.
 - `mqtt.loop()` / `reconnectMQTT()` recover naturally once WiFi is restored — no special handling needed for MQTT during a WiFi outage beyond the existing "skip if WiFi not connected" guard AirSensor already uses.
 
-### 4. Cleanup
+### 4. Cleanup (revised)
 
-- Remove `hoeken/PsychicHttp` from `platformio.ini` `lib_deps` — it is not referenced anywhere in `src/` or `include/` (confirmed via grep). The web server stays on the existing raw `WiFiServer` implementation.
+- **Correction:** `hoeken/PsychicHttp` is not actually unused. `src/main.cpp:7,532` includes and uses `TemplatePrinter.h`/`TemplatePrinter`, which ships as part of the `PsychicHttp` package — the initial grep for the string `"Psychic"` missed this because the class name doesn't contain it. `PsychicHttp` stays in `lib_deps`; no dependency is removed as part of this work.
 
 ### Out of scope
 
 - Migrating the web server from raw `WiFiServer` to a different HTTP library.
 - An OTA password.
 - Any Home Assistant entities beyond the pattern `select` (no brightness control, no additional sensors).
+- Removing `PsychicHttp` (superseded — see Cleanup above).
 
 ## Testing
 

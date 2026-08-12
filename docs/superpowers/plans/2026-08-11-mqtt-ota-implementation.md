@@ -15,7 +15,7 @@
 - Pattern options (unchanged, from existing `gButtonClicked` values): `off, red, blue, green, yellow, cyan, orange, white, gold, hanukkah, nordic`.
 - OTA: no password (matches `AirSensor`), 60-second idle timeout before auto-resuming normal operation.
 - WiFi watchdog: check every 30 s (`WIFI_CHECK_INTERVAL`, unchanged), bounded reconnect retry of 20 × 500 ms.
-- Remove `hoeken/PsychicHttp` from `lib_deps` — confirmed unused anywhere in `src/` or `include/`.
+- Keep `hoeken/PsychicHttp` in `lib_deps` — `src/main.cpp:7,532` uses `TemplatePrinter.h`/`TemplatePrinter`, which is part of that package (an earlier grep for the literal string "Psychic" missed this; do not remove the dependency).
 - No automated test framework exists in this project (embedded firmware, hardware-dependent). Verification is via `pio run` build success plus the manual hardware checklist in the final task — this replaces unit tests throughout.
 - PlatformIO binary: `~/.platformio/penv/bin/pio` (not on `PATH` in this shell).
 
@@ -31,7 +31,7 @@
 **Interfaces:**
 - Produces: `#define hostname "twinkle-back"`, `#define device_id "twinkle_back"` (both in `src/main.cpp`), and `mqttServer`/`mqttUser`/`mqttPass` defines (in `include/arduino-secrets.h`) — all later tasks depend on these names.
 
-- [ ] **Step 1: Update `platformio.ini`** — remove the unused `PsychicHttp` dependency, add `PubSubClient`, and add an OTA upload environment mirroring `AirSensor`'s pattern:
+- [ ] **Step 1: Update `platformio.ini`** — keep `PsychicHttp` (it provides `TemplatePrinter.h`, used by the existing web server), add `PubSubClient`, and add an OTA upload environment mirroring `AirSensor`'s pattern:
 
 ```ini
 [env:adafruit_feather_esp32_v2]
@@ -40,6 +40,7 @@ board = adafruit_feather_esp32_v2
 framework = arduino
 lib_deps = 
 	fastled/FastLED@^3.10.3
+	hoeken/PsychicHttp
 	knolleary/PubSubClient
 monitor_speed = 115200
 extra_scripts = pre:tools/generate_strings.py
