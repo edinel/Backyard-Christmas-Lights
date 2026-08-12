@@ -24,7 +24,7 @@ A sibling project, `AirSensor` (`/Users/edinel/src/Air Quality/AirSensor/src/mai
 
 - Add `knolleary/PubSubClient` to `platformio.ini` `lib_deps` (matches `AirSensor`'s `platformio.ini`).
 - Extend `include/arduino-secrets.h` with `mqttServer`, `mqttUser`, `mqttPass` (currently only has `ssid`/`pass`). Reuses the same broker AirSensor already talks to (`homeassistant.local.solace.org`).
-- Device identity: reuse the existing `hostname` (`"BackYard-Xmas-Arduino"`) and derive a `device_id` (e.g. `"backyard_xmas_lights"`) for discovery `unique_id`s, following AirSensor's `DEVICE_ID` convention.
+- Device identity: change `hostname` from `"BackYard-Xmas-Arduino"` to `"twinkle-back"`, and derive `device_id = "twinkle_back"` for discovery `unique_id`s, following AirSensor's `DEVICE_ID` convention.
 - Publish an MQTT discovery **`select`** entity:
   - Discovery topic: `homeassistant/select/<device_id>/pattern/config`
   - Options: `off, red, blue, green, yellow, cyan, orange, white, gold, hanukkah, nordic` — the same values `RadioProcessor`/`UpdatePalette` already use for `gButtonClicked`.
@@ -55,9 +55,13 @@ A sibling project, `AirSensor` (`/Users/edinel/src/Air Quality/AirSensor/src/mai
 - `setup()` keeps its existing blocking initial connect (`Connect_to_Wifi()`) — there's nothing useful to do before WiFi exists on first boot, so no change needed there.
 - `mqtt.loop()` / `reconnectMQTT()` recover naturally once WiFi is restored — no special handling needed for MQTT during a WiFi outage beyond the existing "skip if WiFi not connected" guard AirSensor already uses.
 
+### 4. Cleanup
+
+- Remove `hoeken/PsychicHttp` from `platformio.ini` `lib_deps` — it is not referenced anywhere in `src/` or `include/` (confirmed via grep). The web server stays on the existing raw `WiFiServer` implementation.
+
 ### Out of scope
 
-- Migrating the web server from raw `WiFiServer` to `PsychicHttp` (already present in `lib_deps` but unused) — noted as existing but unrelated to this work.
+- Migrating the web server from raw `WiFiServer` to a different HTTP library.
 - An OTA password.
 - Any Home Assistant entities beyond the pattern `select` (no brightness control, no additional sensors).
 
