@@ -1,5 +1,6 @@
 #include <Arduino.h>
 #include <FastLED.h>
+#include <PubSubClient.h>
 #include <WiFi.h>
 #include <stdio.h>
 #include <time.h>
@@ -21,6 +22,8 @@
 #define NUM_FUNCTIONS 4
 #define hostname "twinkle-back"
 #define device_id "twinkle_back"
+#define MQTT_PORT 1883
+#define MQTT_RETRY_INTERVAL_MS 5000
 
 #define ARRAY_SIZE(A) (sizeof(A) / sizeof((A)[0]))
 
@@ -45,6 +48,17 @@ unsigned long gLastWifiCheck = 0;
 
 // Set web server port number to 80
 WiFiServer gWiFiServer(80);
+
+WiFiClient   wifiClient;
+PubSubClient mqtt(wifiClient);
+
+char CMD_TOPIC[48];
+char PATTERN_STATE_TOPIC[48];
+char PATTERN_SET_TOPIC[48];
+char PATTERN_CONFIG_TOPIC[64];
+
+bool s_otaRequested = false;
+bool s_otaCancelled = false;
 
 // Variable to store the HTTP request
 String gHeader;
@@ -148,6 +162,53 @@ void checkWiFi() {
     gWiFiServer.begin();
   } else {
     Serial.println("WiFi reconnect failed, will retry");
+  }
+}
+
+void mqttCallback(char* topic, byte* payload, unsigned int length) {
+  // Pattern-set and OTA command handling added in later tasks.
+}
+
+void publishPatternDiscovery() {
+  char payload[640];
+  snprintf(payload, sizeof(payload),
+    "{\"name\":\"Pattern\","
+    "\"state_topic\":\"%s\","
+    "\"command_topic\":\"%s\","
+    "\"options\":[\"off\",\"red\",\"blue\",\"green\",\"yellow\",\"cyan\",\"orange\",\"white\",\"gold\",\"hanukkah\",\"nordic\"],"
+    "\"unique_id\":\"%s_pattern\","
+    "\"device\":{\"identifiers\":[\"%s\"],\"name\":\"Twinkle Back\","
+    "\"model\":\"ESP32 Christmas Lights\",\"manufacturer\":\"DIY\"}}",
+    PATTERN_STATE_TOPIC, PATTERN_SET_TOPIC, device_id, device_id);
+  mqtt.publish(PATTERN_CONFIG_TOPIC, payload, true);
+  Serial.println("HA discovery published");
+}
+
+void publishPatternState() {
+  mqtt.publish(PATTERN_STATE_TOPIC, gButtonClicked.c_str(), true);
+}
+
+void reconnectMQTT() {
+  static unsigned long lastAttempt = 0;
+  if (mqtt.connected()) return;
+  if (WiFi.status() != WL_CONNECTED) return;
+
+  unsigned long now = millis();
+  if (now - lastAttempt < MQTT_RETRY_INTERVAL_MS) return;
+  lastAttempt = now;
+
+  Serial.print("Connecting to MQTT: ");
+  Serial.println(mqttServer);
+
+  if (mqtt.connect(hostname, mqttUser, mqttPass)) {
+    Serial.println("MQTT connected");
+    publishPatternDiscovery();
+    publishPatternState();
+    mqtt.subscribe(PATTERN_SET_TOPIC);
+    mqtt.subscribe(CMD_TOPIC);
+  } else {
+    Serial.print("MQTT connect failed, rc=");
+    Serial.println(mqtt.state());
   }
 }
 
@@ -481,6 +542,14 @@ void setup() {
 
   // SET UP WIFI 
    Connect_to_Wifi();  // Like it says
+  snprintf(CMD_TOPIC,           sizeof(CMD_TOPIC),           "%s/cmd",                          hostname);
+  snprintf(PATTERN_STATE_TOPIC, sizeof(PATTERN_STATE_TOPIC), "%s/select/pattern/state",          hostname);
+  snprintf(PATTERN_SET_TOPIC,   sizeof(PATTERN_SET_TOPIC),   "%s/select/pattern/set",             hostname);
+  snprintf(PATTERN_CONFIG_TOPIC, sizeof(PATTERN_CONFIG_TOPIC), "homeassistant/select/%s/pattern/config", device_id);
+
+  mqtt.setServer(mqttServer, MQTT_PORT);
+  mqtt.setBufferSize(768);
+  mqtt.setCallback(mqttCallback);
   if (debug) { Print_Wifi_Status(); }
   delay(3000);
   gWiFiServer.begin();
@@ -492,6 +561,8 @@ void setup() {
 
 void loop() {
   checkWiFi();
+  reconnectMQTT();
+  mqtt.loop();
 
   WiFiClient client = gWiFiServer.available();   // Listen for incoming clients
   if (client) {                             // If a new client connects,
