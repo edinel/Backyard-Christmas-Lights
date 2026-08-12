@@ -245,15 +245,24 @@ void enterOTAMode() {
   ArduinoOTA.onProgress([](unsigned int prog, unsigned int total) {
     Serial.printf("OTA %u%%\n", prog * 100 / total);
   });
-  ArduinoOTA.onError([](ota_error_t e) { Serial.printf("OTA error %u\n", e); });
+  ArduinoOTA.onError([](ota_error_t e) {
+    Serial.printf("OTA error %u\n", e);
+    s_otaUploadStarted = false;
+  });
   ArduinoOTA.begin();
 
   unsigned long start = millis();
   while (!s_otaCancelled) {
     ArduinoOTA.handle();
     mqtt.loop();
-    if (!s_otaUploadStarted && millis() - start > OTA_IDLE_TIMEOUT_MS) {
-      Serial.println("OTA idle timeout — resuming normal operation");
+    checkWiFi();
+    reconnectMQTT();
+
+    unsigned long elapsed = millis() - start;
+    bool idleTimedOut = !s_otaUploadStarted && elapsed > OTA_IDLE_TIMEOUT_MS;
+    bool hardTimedOut = elapsed > (OTA_IDLE_TIMEOUT_MS * 5);
+    if (idleTimedOut || hardTimedOut) {
+      Serial.println(idleTimedOut ? "OTA idle timeout — resuming normal operation" : "OTA hard timeout — resuming normal operation");
       break;
     }
   }
