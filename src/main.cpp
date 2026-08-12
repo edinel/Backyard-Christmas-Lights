@@ -130,6 +130,27 @@ void Print_Wifi_Status() {
   Serial.println(" dBm");
 }
 
+void checkWiFi() {
+  unsigned long now = millis();
+  if (now - gLastWifiCheck < WIFI_CHECK_INTERVAL) return;
+  gLastWifiCheck = now;
+
+  if (WiFi.status() == WL_CONNECTED) return;
+
+  Serial.println("WiFi lost, reconnecting...");
+  WiFi.disconnect();
+  WiFi.begin(ssid, pass);
+  for (int i = 0; i < 20 && WiFi.status() != WL_CONNECTED; i++) delay(500);
+
+  if (WiFi.status() == WL_CONNECTED) {
+    Serial.println("WiFi restored");
+    if (debug) { Print_Wifi_Status(); }
+    gWiFiServer.begin();
+  } else {
+    Serial.println("WiFi reconnect failed, will retry");
+  }
+}
+
 String isThisOn (String color){
   if (color == gButtonClicked){
     return "checked";
@@ -470,18 +491,7 @@ void setup() {
 }
 
 void loop() {
-  // Periodically check WiFi and reconnect if dropped
-  unsigned long now = millis();
-  if (now - gLastWifiCheck >= WIFI_CHECK_INTERVAL) {
-    gLastWifiCheck = now;
-    if (WiFi.status() != WL_CONNECTED) {
-      Serial.println("WiFi lost, reconnecting...");
-      WiFi.disconnect();
-      Connect_to_Wifi();
-      gWiFiServer.begin();
-      if (debug) { Print_Wifi_Status(); }
-    }
-  }
+  checkWiFi();
 
   WiFiClient client = gWiFiServer.available();   // Listen for incoming clients
   if (client) {                             // If a new client connects,
