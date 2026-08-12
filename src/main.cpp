@@ -19,7 +19,8 @@
 #define BRIGHTNESS          125  
 #define FRAMES_PER_SECOND  120
 #define NUM_FUNCTIONS 4
-#define hostname "BackYard-Xmas-Arduino"
+#define hostname "twinkle-back"
+#define device_id "twinkle_back"
 
 #define ARRAY_SIZE(A) (sizeof(A) / sizeof((A)[0]))
 
